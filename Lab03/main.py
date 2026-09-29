@@ -88,7 +88,7 @@ def build_plots(x: list[float], y: list[float], y_approximate: list[float], erro
     plt.plot(optimal_m, variances[optimal_m - 1], 'ro', label=f'Minimum (m={optimal_m})')
     plt.xlabel('Polynomial Degree (m)')
     plt.ylabel('Variance')
-    plt.xticks(m_values) 
+    plt.xticks(m_values)
     plt.legend()
     plt.grid(True)
 
@@ -100,7 +100,7 @@ def main() -> None:
     max_m: int = 10
 
     if max_m >= len(y):
-        print("M cannot be less than the number of nodes.")
+        print("M has to be less than the number of nodes.")
         return
 
     variances: list[float] = []
