@@ -1,66 +1,83 @@
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 
+
 def f(x: float) -> float:
-    return 50 * (math.exp(-0.1 * x)) + 5 * math.sin(x)
+    return 50.0 * math.exp(-0.1 * x) + 5.0 * math.sin(x)
+
 
 def f_derivative(x: float) -> float:
-    return -5 * (math.exp(-0.1 * x)) + 5 * math.cos(x)
+    return -5.0 * math.exp(-0.1 * x) + 5.0 * math.cos(x)
+
 
 def central_difference(x: float, h: float) -> float:
-    return (f(x + h) - f(x - h)) / (2 * h)
+    return (f(x + h) - f(x - h)) / (2.0 * h)
 
-def draw_plot(h_values: list[float], errors: list[float]) -> None:
-    plt.plot(h_values, errors, marker="o")
-    plt.xlabel("H")
-    plt.ylabel("Error")
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.show()
 
-def calculate_errors(x0: float, f_x0: float, h_values: list[float]) -> list[float]:
-    return [abs(f_x0 - central_difference(x0, h)) for h in h_values]
+def runge_romberg_method(y_h: float, y_2h: float) -> float:
+    return y_h + (y_h - y_2h) / 3.0
 
-def find_h_optimal(h_values: list[float], errors: list[float]) -> tuple[float, float]:
-    min_error, h_optimal = min(zip(errors, h_values))
-    return h_optimal, min_error
 
-def runge_romberg_method(f_x0: float, f0_h: float, f0_2h: float) -> float:
-    f_r: float = f0_h + ((f0_h - f0_2h) / 3)
-    return abs(f_r - f_x0)
+def aitkens_method(y_h: float, y_2h: float, y_4h: float) -> tuple[float, float]:
+    denominator = 2.0 * y_2h - (y_4h + y_h)
+    y_e = (y_2h**2 - y_4h * y_h) / denominator
+    p = (1.0 / math.log(2.0)) * math.log(abs((y_4h - y_2h) / (y_2h - y_h)))
+    return y_e, p
 
-def aitkens_method(f_x0: float, f0_h: float, f0_2h: float, f0_4h: float) -> float:
-    denominator: float = 2 * f0_2h - (f0_4h + f0_h)
-    if denominator == 0.0:
-        return float('inf')
-    f_e: float = (f0_2h ** 2 - f0_h * f0_4h) / denominator
-    return abs(f_e - f_x0)
 
 def main() -> None:
-    x0: float = 1
-    f_x0: float = f_derivative(x0)
+    x0 = 1.0
+    exact_val = f_derivative(x0)
 
-    h_values = [10 ** x for x in range(-20, 4)]
-    errors: list[float] = calculate_errors(x0, f_x0, h_values)
+    h_values = np.logspace(-20, 3, 2000)
+    errors = np.array([abs(central_difference(x0, h) - exact_val) for h in h_values])
 
-    draw_plot(h_values, errors)
+    min_idx = int(np.argmin(errors))
+    h0 = h_values[min_idx]
+    r0 = errors[min_idx]
 
-    h_optimal, error = find_h_optimal(h_values, errors)
+    h = 1e-3
+    y_h = central_difference(x0, h)
+    y_2h = central_difference(x0, 2.0 * h)
+    y_4h = central_difference(x0, 4.0 * h)
+    r1 = abs(y_h - exact_val)
 
-    print(f"Optimal h: {h_optimal}; Error: {error}\n")
+    y_r = runge_romberg_method(y_h, y_2h)
+    r2 = abs(y_r - exact_val)
 
-    h: float = 1e-3
-    f0_h: float = central_difference(x0, h)
-    f0_2h: float = central_difference(x0, h * 2)
-    f0_4h: float = central_difference(x0, h * 4)
+    y_e, p_est = aitkens_method(y_h, y_2h, y_4h)
+    r3 = abs(y_e - exact_val)
 
-    r1: float = abs(f0_h - f_x0)
-    r2: float = runge_romberg_method(f_x0, f0_h, f0_2h)
-    r3: float = aitkens_method(f_x0, f0_h, f0_2h, f0_4h)
+    print("=== NUMERICAL DIFFERENTIATION RESULTS ===")
+    print(f"Exact derivative M'({x0}):   {exact_val:.12f}\n")
+    print(f"Optimal step h0:             {h0:.3e}")
+    print(f"Minimum error R0:            {r0:.3e}\n")
+    print(f"Step h = {h}:")
+    print(f"  y'(h)  = {y_h:.12f}")
+    print(f"  y'(2h) = {y_2h:.12f}")
+    print(f"  y'(4h) = {y_4h:.12f}")
+    print(f"  Central diff error R1:     {r1:.3e}\n")
+    print(f"Runge-Romberg method:")
+    print(f"  y'_R   = {y_r:.12f}")
+    print(f"  Error R2:                  {r2:.3e}\n")
+    print(f"Aitken's method:")
+    print(f"  y'_E   = {y_e:.12f}")
+    print(f"  Error R3:                  {r3:.3e}")
+    print(f"  Estimated order p:         {p_est:.4f}")
 
-    print(f"Error: {r1}")
-    print(f"Runge Romberg method: {r2}")
-    print(f"Aiken's method: {r3}")
+    plt.figure(figsize=(8, 5))
+    plt.loglog(h_values, errors, 'b-', linewidth=1.8, label='Absolute error $R(h)$')
+    plt.loglog(h0, r0, 'ro', markersize=8, label=f'Optimal $h_0 = {h0:.2e}$, $R_0 = {r0:.2e}$')
+    plt.title("Dependence of Numerical Differentiation Error on Step Size $h$")
+    plt.xlabel("Step size $h$")
+    plt.ylabel("Absolute error $R = |y_0'(h) - y'(x_0)|$")
+    plt.grid(True, which='both', linestyle='--', alpha=0.6)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("lab4_plot_error.png", dpi=300)
+    plt.show()
+
 
 if __name__ == "__main__":
     main()
